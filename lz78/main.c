@@ -4,7 +4,9 @@
 // Dictionary size
 // Open file
 // 
+// Should make sure that I have proper return values everywhere
 // Store documentation in HEADER files.
+// Need to make sure that every function in here is in the header file
 
 // Oh holy fuck there is a difference between bit-level and byte-level
 // encoding. By using bytes, I'm literally just passing the buck and saying
@@ -24,8 +26,7 @@
 // I could also make it operate on bits:
 // Dictionry:
 // [reference][1]
-// [reference][1]
-// Where the last bit of each entry is the new bit
+// [reference][1] // Where the last bit of each entry is the new bit
 // Now, theoretically, I could make that work with any size reference.
 // HOWEVER, because the fundamental unit is a BYTE and not a bit,
 // the second scheme becomes MUCH MORE CONVENIENT to access if the reference
@@ -43,13 +44,14 @@
 #include "main.h"
 
 int main(){
-    encode(15,"hi","out.txt");
+    encode(7,"mars.jpg","mars.jpg.pw");
+    decode(7,"mars.jpg.pw","marsmars.jpg");
     return 0;
 }
 
 int get_next_bit(char* c, uint64_t itr, FILE* in){
     if (itr == 0) {
-        printf("\n");
+        //printf("\n");
         if (fgets(c, 2, in) == NULL) { 
             return -1;
         }
@@ -64,9 +66,8 @@ int encode(int ref_size, const char * const infile,
 const char * const outfile) {
    
     // http://stackoverflow.com/questions/20863959/difference-between-opening-a-file-in-binary-vs-text
-    // FILE* in = fopen(infile, "rb");
-    FILE* in = fopen("test.txt", "rb");
-    FILE* out = fopen(infile, "wb");
+    FILE* in = fopen(infile, "rb");
+    FILE* out = fopen(outfile, "wb");
 
     char c;
 
@@ -87,7 +88,7 @@ const char * const outfile) {
     dict.size = 1;
 
     while ((bit = get_next_bit(&c, itr, in)) != -1) {
-        printf("%d", bit);
+        //printf("%d", bit);
         itr = (itr + 1) % 8;
 
         create_entry(entry, ref_size, ref, bit);
@@ -95,17 +96,12 @@ const char * const outfile) {
         // Get updated index if it exists in the table
         present = lookup(&dict, entry, &ref, ref_size);
 
-        printf(" was found: %s", present ? "true\n" : "false\n");
+        //printf(" was found: %s", present ? "true\n" : "false\n");
 
         if (!present) {
-            //printf("FALSE, ref is %" PRIu64 "\n" ,  ref);
-            // Store (if possible) and output to file
             store(&dict, entry, dict.size, ref_size);
             // This shouldn't be done here...
-            dict.size++;
             fwrite(entry, 1, get_num_bytes(ref_size), out);
-
-            // Reset ref to 0
             ref = 0;
         }
         else if (present){
@@ -116,66 +112,145 @@ const char * const outfile) {
     if (ref != 0) {
         fwrite(entry, 1, get_num_bytes(ref_size), out);
     }
-    // I will probably need some logic here, like "if ref is not 0, then dump
-    // the reference. Otherwise, abort, abort! No more output.
-
-    // main loop: get next bit CHECK
-    // Initialize character stream. KEEP TRACK OF CUR_REF.
-    // Get next bit. CHECK
-    // Does it match anything in database? CALL LOOKUP, true/false;
-    // Yes: get next character CHECK, KEEP LOOP ROLLING
-    // No: put into database and output (SHOULD BE EASY)
-
+    fclose(in);
+    fclose(out);
     return 0;
 }
 
-// Some sort of function to get condensed version of reference?
-// The problem is making the size of the value variable... 
-
 int create_entry(char* entry, int ref_size, uint64_t ref, int bit) { 
-    //printf("Before Shift %" PRIu64 "\n" ,  ref);
-    //printf("Bit %d",  bit);
     ref = ref << 1;
     ref = ref | bit;
-
-    //printf("Copying %" PRIu64 "\n" ,  ref);
-
     int num_bytes = get_num_bytes(ref_size);
-    // This will likely take a bit of debugging to get right...
     memcpy(entry, &ref, num_bytes); 
-
-    // Can delete when done debugging...
-    //printf("Creating: %*.*s", num_bytes, num_bytes, entry);
 }
 
-/*
+uint64_t bytes_to_int(char* c, int ref_size) {
+    uint64_t total = 0; 
+    int num_bytes = get_num_bytes(ref_size);
+    memcpy(&total, c, num_bytes);
+    return total;
+}
 
-int unpack_ref(){}
+uint64_t unpack_ref(char* c, int ref_size){
+    uint64_t entry = bytes_to_int(c,ref_size);
+    return entry >> 1;
 
-int unpack_bit(){}
+}
 
-*/
-
+int unpack_bit(char* c, int ref_size){
+    uint64_t entry = bytes_to_int(c,ref_size);
+    return entry & 1;
+}
 
 int get_num_bytes(int ref_size){
     return (ref_size + 1) / 8;
 }
 
+
+int add_to_byte(int* ctr, int bit, char* byte, FILE* out){
+    if (*ctr == 8) {
+        // Flush to buffer
+        // reset byte
+        // reset ctr
+        //printf("Flushing: %d\n", *byte);
+        fwrite(byte, 1, 1, out);
+        *byte = 0;
+        *ctr = 0;
+        //printf("Flushed!\n");
+    }
+    //printf("Char was: %d\n", *byte);
+    *byte = ((unsigned char)(*byte)) >> 1;
+    //printf("Char is: %d\n", *byte);
+    *byte = (*byte) | bit<<7;
+    //printf("adding %d\n", bit);
+    //printf("Before Counter is: %d\n", *ctr);
+    *ctr = *ctr + 1;
+    //printf("After Counter is: %d\n", *ctr);
+}
+
+// I might be able to clean up the code in decode by just calling this
+// method instead of repeating basically the same lines of code. Maybeee.
+int walk_reference(dictionary* dict, int* ctr, uint64_t ref, int ref_size,
+char* byte, FILE* out) {
+    // Get entry from dictionary
+    // Pull out bit
+    // pull out ref
+    // Add bit
+    // If ref != 0
+    //     walk_reference(...)
+
+    int num_bytes = get_num_bytes(ref_size);
+    uint64_t new_ref = 0;
+    int bit = 0;
+    char entry[get_num_bytes(ref_size)];
+
+    memcpy(entry, dict->dict + (ref * num_bytes), num_bytes);
+
+    new_ref = unpack_ref(entry, ref_size);
+    bit = unpack_bit(entry, ref_size);
+
+    //printf("walking, ref unpacked: %" PRIu64 "\n", new_ref);
+    //printf("walking, bit unpacked: %d\n\n", bit);
+
+    //printf("Counter is: %d\n", *ctr);
+    if (new_ref != 0) {
+        walk_reference(dict, ctr, new_ref, ref_size, byte, out);
+    }
+    add_to_byte(ctr, bit, byte, out);
+}
+
 int decode(int ref_size, const char * const infile, 
 const char * const outfile) {
 
+    FILE* in = fopen(infile, "rb");
+    FILE* out = fopen(outfile, "wb");
+
     int num_bytes = get_num_bytes(ref_size);
 
-    // I should really abstract this code into another method
+    // I should really abstract this code into another method...
     dictionary dict; 
     dict.dict = init_lookup(ref_size);
     dict.size = 1;
 
-    // Initialize dictionary
-    // Grab the next number of bytes
-    //
+    char entry[get_num_bytes(ref_size)];
+    uint64_t ref;
+    int bit;
+    char out_byte = 0;
+    int ctr = 0;
 
+    // There should be an even multiple of num_bytes bytes in the file
+    while (fread(entry, 1, num_bytes, in) != 0)
+    {
+        store(&dict, entry, dict.size, ref_size);
+        ref = unpack_ref(entry, ref_size);
+        bit = unpack_bit(entry, ref_size);
+        //printf("ref unpacked: %" PRIu64 "\n", ref);
+        //printf("bit unpacked: %d\n\n", bit);
+
+        // Walk reference, will need to pass itr
+        if (ref != 0) {
+            walk_reference(&dict, &ctr, ref, ref_size, &out_byte, out);
+        }
+        add_to_byte(&ctr, bit, &out_byte, out);
+    }
+    // Flush the last byte. Might be able to re-organize so that we flush
+    // if the counter goes over so we don't have to do this here.
+    fwrite(&out_byte, 1, 1, out);
+
+    fclose(in);
+    fclose(out);
+
+    // Initialize dictionary CHECK
+    // Loop:
+    // Grab the next set of bytes CHECK
+    // Add the entry to the database CHECK
+    // unpack the reference and the bit CHECK
+    // walk the reference, adding the bits to the byte. That function will
+    // flush as necessary.
+    // Add the bit to the byte
+    // repeat.
 }
+
 
 char* init_lookup(int ref_size) {
     // (15 + 1) / 8 = 2 bytes
@@ -195,7 +270,7 @@ bool lookup(dictionary* dict, char* entry, uint64_t* ref, int ref_size) {
         int val = memcmp(entry, dict->dict + (i * num_bytes), num_bytes);
         if (val == 0) {
             *ref = i;
-            printf("ref going out is %" PRIu64 "", *ref);
+            // printf("ref going out is %" PRIu64 "", *ref);
             return true;
         }
     }
@@ -204,17 +279,19 @@ bool lookup(dictionary* dict, char* entry, uint64_t* ref, int ref_size) {
 
 // Store function (takes key, value, stores it)
 // Honestly, we should probably increment the store here...
-int store(dictionary* dict, char* entry, uint64_t ref, int ref_size){
-    int num_bytes = get_num_bytes(ref_size);
-    memcpy(dict->dict + (ref * num_bytes), entry, num_bytes);
+// HONESTLY, I should probably refactor this. The dictionary does not need
+// to be told what its size is. It should be able to figure that one out.
+// ref == location in the dictionary to store the thing
+bool store(dictionary* dict, char* entry, uint64_t ref, int ref_size){
+    // I should make sure to check this logic
+    if (dict->size < (1 << ref_size)) {
+        int num_bytes = get_num_bytes(ref_size);
+        memcpy(dict->dict + (ref * num_bytes), entry, num_bytes);
+        dict->size = dict->size + 1;
+        return true;
+    }
+    return false;
     //printf("Storing: %*.*s\n", num_bytes, num_bytes, entry);
 }
-
-
-
-
-
-
-
 
 

@@ -12,7 +12,7 @@ struct _dict {
 
 char* init_lookup(int ref_size);
 bool lookup(dictionary* dict, char* entry, uint64_t* ref, int ref_size);
-int store(dictionary* dict, char* entry, uint64_t ref, int ref_size);
+bool store(dictionary* dict, char* entry, uint64_t ref, int ref_size);
 
 int get_next_bit(char* c, uint64_t itr, FILE* in); int get_num_bytes(int ref_size);
 
