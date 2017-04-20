@@ -44,15 +44,19 @@
 #include "main.h"
 
 int main(){
-    encode(7,"mars.jpg","mars.jpg.pw");
-    decode(7,"mars.jpg.pw","marsmars.jpg");
+    encode(15,"abc.txt", "abc.pw");
+    decode(15,"abc.pw","abcopy.txt");
     return 0;
 }
 
 int get_next_bit(char* c, uint64_t itr, FILE* in){
     if (itr == 0) {
         //printf("\n");
-        if (fgets(c, 2, in) == NULL) { 
+        //if (fgets(c, 2, in) == NULL) { 
+        //    return -1;
+        //}
+        *c = fgetc(in);
+        if (feof(in)){
             return -1;
         }
     }
@@ -114,6 +118,7 @@ const char * const outfile) {
     }
     fclose(in);
     fclose(out);
+    free(dict.dict);
     return 0;
 }
 
@@ -239,6 +244,7 @@ const char * const outfile) {
 
     fclose(in);
     fclose(out);
+    free(dict.dict);
 
     // Initialize dictionary CHECK
     // Loop:
@@ -266,8 +272,8 @@ bool lookup(dictionary* dict, char* entry, uint64_t* ref, int ref_size) {
     // Look through the array and compare everything
     int val;
     uint64_t i = 1;
-    for (i; i < dict->size; i++){
-        int val = memcmp(entry, dict->dict + (i * num_bytes), num_bytes);
+    for (; i < dict->size; i++){
+        val = memcmp(entry, dict->dict + (i * num_bytes), num_bytes);
         if (val == 0) {
             *ref = i;
             // printf("ref going out is %" PRIu64 "", *ref);

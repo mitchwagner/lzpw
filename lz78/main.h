@@ -5,10 +5,10 @@
 #include <stdbool.h>
 
 
-struct _dict {
+typedef struct _dict {
     uint64_t size;
     char* dict;
-} typedef dictionary;
+} dictionary;
 
 char* init_lookup(int ref_size);
 bool lookup(dictionary* dict, char* entry, uint64_t* ref, int ref_size);
