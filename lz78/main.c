@@ -43,13 +43,57 @@
 #include <inttypes.h>
 #include "main.h"
 
-int main(){
-    encode(15,"marbles.bmp", "m.pw");
-    decode(15,"m.pw","marbles.bmp");
+void print_usage(char* prog_name) {
+    printf("LZ78 Encryption Tool:\n");
+    printf("Usage: %s infile outfile [dict_size]\n" , prog_name);
+    printf("    infile:    file to compress\n");
+    printf("    outfile:   file to write result to\n");
+    printf("    dict_size: size, in bytes, of dictionary entry (1 or 2)\n");
+}
+
+int main(int argc, char** argv){
+
+    if (argc != 3 && argc != 4) {
+        print_usage(argv[0]);
+        exit(1);
+    }
+
+    char* infile = argv[1];
+    char* outfile = argv[2];
+    int dict_size = 15;
+
+    if (argc == 4) {
+        printf("Got here\n");
+        int size = strtol(argv[3], NULL, 10);
+        printf("Got here\n");
+
+        if (size == 1) {
+            dict_size = 7;
+        }
+        else if (size == 2) {
+            dict_size = 15;
+        }
+        else {
+            print_usage(argv[0]);
+            exit(1);
+        }
+    }
+    printf("Got here darn it\n");
+
+    char temp[strlen(infile) + 2];
+    memcpy(temp, infile, strlen(infile));
+    strcat(temp, ".pw");
+
+    // TODO: Error checking 
+    encode(dict_size, infile, temp); 
+    decode(dict_size, temp, outfile);
+
+    // TODO: Remove input file
+
     return 0;
 }
 
-int get_next_bit(char* c, uint64_t itr, FILE* in){
+static int get_next_bit(char* c, uint64_t itr, FILE* in){
     if (itr == 0) {
         //printf("\n");
         //if (fgets(c, 2, in) == NULL) { 
@@ -122,7 +166,7 @@ const char * const outfile) {
     return 0;
 }
 
-int create_entry(char* entry, int ref_size, uint64_t ref, int bit) { 
+static int create_entry(char* entry, int ref_size, uint64_t ref, int bit) { 
     ref = ref << 1;
     ref = ref | bit;
     int num_bytes = get_num_bytes(ref_size);
@@ -305,5 +349,3 @@ bool store(dictionary* dict, char* entry, uint64_t ref, int ref_size){
     return false;
     //printf("Storing: %*.*s\n", num_bytes, num_bytes, entry);
 }
-
-
