@@ -44,8 +44,8 @@
 #include "main.h"
 
 int main(){
-    encode(15,"abc.txt", "abc.pw");
-    decode(15,"abc.pw","abcopy.txt");
+    encode(15,"marbles.bmp", "m.pw");
+    decode(15,"m.pw","marbles.bmp");
     return 0;
 }
 
@@ -271,7 +271,13 @@ bool lookup(dictionary* dict, char* entry, uint64_t* ref, int ref_size) {
 
     // Look through the array and compare everything
     int val;
-    uint64_t i = 1;
+    uint64_t i;
+    if (*ref == 0) {
+        i = 1;
+    }
+    else{
+        i = *ref;
+    }
     for (; i < dict->size; i++){
         val = memcmp(entry, dict->dict + (i * num_bytes), num_bytes);
         if (val == 0) {
