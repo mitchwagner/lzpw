@@ -171,6 +171,9 @@ static int create_entry(char* entry, int ref_size, uint64_t ref, int bit) {
     ref = ref | bit;
     int num_bytes = get_num_bytes(ref_size);
     memcpy(entry, &ref, num_bytes); 
+
+    // TODO: Add real value
+    return 0;
 }
 
 uint64_t bytes_to_int(char* c, int ref_size) {
@@ -215,6 +218,9 @@ int add_to_byte(int* ctr, int bit, char* byte, FILE* out){
     //printf("Before Counter is: %d\n", *ctr);
     *ctr = *ctr + 1;
     //printf("After Counter is: %d\n", *ctr);
+
+    //TODO: Return real value
+    return 0;
 }
 
 // I might be able to clean up the code in decode by just calling this
@@ -246,6 +252,9 @@ char* byte, FILE* out) {
         walk_reference(dict, ctr, new_ref, ref_size, byte, out);
     }
     add_to_byte(ctr, bit, byte, out);
+
+    // TODO: Add real value
+    return 0;
 }
 
 int decode(int ref_size, const char * const infile, 
@@ -299,6 +308,10 @@ const char * const outfile) {
     // flush as necessary.
     // Add the bit to the byte
     // repeat.
+
+
+    // TODO: Add real value
+    return 0;
 }
 
 
