@@ -1,9 +1,5 @@
 .RECIPEPREFIX += 
 
-# Okay, need to make it normally with gcc
-# need to make it with omp
-# need to make it with acc for both platforms
-
 GCC = gcc
 GCCFLAGS = -std=c99 -W -Wall -Werror -O3 -ggdb3
 
