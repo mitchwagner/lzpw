@@ -5,10 +5,10 @@ GCCFLAGS = -std=c99 -W -Wall -Werror -O3 -ggdb3
 
 PGCC = pgcc
 
-OMPFLAGS = -fast -mp -Minfo
-MFLAGS = -acc -ta=multicore -Minfo=accel
-NFLAGS = -acc -ta=radeon -Minfo=accel
-RFLAGS = -acc -ta=nvidia -Minfo=accel
+OMPFLAGS = -fast -mp -Minfo -c99
+MFLAGS = -acc -ta=multicore -Minfo=accel -c99
+NFLAGS = -acc -ta=radeon -Minfo=accel -c99
+RFLAGS = -acc -ta=nvidia -Minfo=accel -c99
 
 OBJS = main.o
 
