@@ -22,6 +22,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 /**
  * Simple dictionary, implemented as a list, for storing previously-seen
@@ -32,6 +33,12 @@ typedef struct _dict {
     uint64_t size; // Number of entries in the dictionary
     char* dict;    // Array in which to store previously-seen patterns
 } dictionary;
+
+typedef struct _header {
+    char ref_size;    // Size of each dictionary reference
+    int num_threads;  // Number of threads in the file
+    long* split_locs; // Indices the file is split on
+} header;
 
 /**
  * Mallocs appropriate amount of memory for a dictionary's dict array, based
@@ -106,12 +113,23 @@ int get_num_bytes(int ref_size);
 int encode(int ref_size, const char * const infile, const char * const outfile);
 
 /**
+ * TODO: Document!
+ */
+void parallel_encode(int num_threads, int ref_size, const char * const infile,
+    const char * const outfile);
+
+/**
  * Decodes a file encrypted by this LZ78 implementation
  * @param ref_size The size, in bits, of each dictioanry reference 
  * @param infile The file to decode
  * @param outfile The name of the output file
  */
 int decode(int ref_size, const char * const infile, const char * const outfile);
+
+/**
+ * TODO: Document!
+ */
+int parallel_decode(const char * const infile, const char * const outfile);
 
 /**
  * Utility function to combine a bit and a dictionary reference into a single
@@ -123,5 +141,23 @@ int decode(int ref_size, const char * const infile, const char * const outfile);
  * @param bit The bit 
  */
 static int create_entry(char* entry, int ref_size, uint64_t ref, int bit);
+
+static long get_file_size(const char * const file);
+
+int encode_help(int ref_size, long start, long end, FILE* in, FILE* out);
+
+int decode_help(int ref_size, long start, long end, FILE* in, FILE* out);
+
+int encoding_merge(FILE** files, int num_files, char* outfile, int dict_size);
+
+// Intended to combine multiple files into one
+int merge_files(FILE** files, int num_files, FILE* outfile, int dict_size);
+
+int make_header(int dict_size, int num_threads, long* split_locs, FILE* out);
+
+header* read_header(FILE* in);
+
+// Intended to remove unnecessary files
+int clean_up();
 
 #endif
