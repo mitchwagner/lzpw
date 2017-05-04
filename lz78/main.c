@@ -69,6 +69,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include "main.h"
+#include "/opt/pgi/osx86-64/2017/include/omp.h"
 
 void print_usage(char* prog_name) {
     printf("LZ78 Encryption Tool:\n");
@@ -109,6 +110,7 @@ int main(int argc, char** argv){
     }
 
     char temp[strlen(infile) + 2];
+    memset(temp, 0, strlen(infile) +2);
 	// TODO: Is this safe???? Do I need to add null terminator?
     memcpy(temp, infile, strlen(infile));
     strcat(temp, ".pw");
@@ -183,8 +185,10 @@ void parallel_encode(int num_threads, int ref_size, const char * const infile,
 
     // TODO: num_threads is not an accurate description of this variable.
     // In reality, it is closer to num_partitions than anything else
-    #pragma omp parallel for num_threads(num_threads)
+    #pragma omp parallel for num_threads(4)
 	for (int i = 0; i < num_threads; i++) {
+        printf("Thread rank: %d\n", omp_get_thread_num());
+        printf("Max threads: %d\n", omp_get_thread_limit());
 		infiles[i] = fopen(infile, "rb");
 		fseek(infiles[i], 0, i * num_threads);
 
@@ -193,6 +197,7 @@ void parallel_encode(int num_threads, int ref_size, const char * const infile,
 
 		char num_buffer[33];
 		char outname[strlen(infile) + 10];
+		memset(outname, 0, strlen(infile) + 10);
 
 		snprintf(num_buffer,33,"%d",i); 
 
@@ -617,11 +622,9 @@ int parallel_decode(const char * const infile, const char* const
         long end;
 		if (i == h->num_threads - 1){
 	        end = fsize;	
-	        printf("Here\n");
 		}
 		else {
 	        end = h->split_locs[i + 1];
-	        printf("Here?\n");
 		}
 
 		char num_buffer[33];
