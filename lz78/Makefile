@@ -7,8 +7,8 @@ PGCC = pgcc
 
 OMPFLAGS = -fast -mp -Minfo -c99
 MFLAGS = -acc -ta=multicore -Minfo=accel -c99
-NFLAGS = -acc -ta=radeon -Minfo=accel -c99
-RFLAGS = -acc -ta=nvidia -Minfo=accel -c99
+RFLAGS = -acc -ta=radeon -Minfo=accel -c99
+NFLAGS = -acc -ta=nvidia -Minfo=accel -c99
 
 # OBJS = main.o
 
