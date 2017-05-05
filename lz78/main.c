@@ -69,7 +69,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include "main.h"
-#include "/opt/pgi/osx86-64/2017/include/omp.h"
+#include "omp.h"
 
 void print_usage(char* prog_name) {
     printf("LZ78 Encryption Tool:\n");
@@ -190,7 +190,7 @@ void parallel_encode(int num_threads, int ref_size, const char * const infile,
         printf("Thread rank: %d\n", omp_get_thread_num());
         printf("Max threads: %d\n", omp_get_thread_limit());
 		infiles[i] = fopen(infile, "rb");
-		fseek(infiles[i], 0, i * num_threads);
+		fseek(infiles[i], i * increment, SEEK_SET);
 
 		// declare enough space for .part_1000
 		// TODO: This is too hard-coded or un-generalizable
