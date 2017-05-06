@@ -142,18 +142,18 @@ int parallel_decode(const char * const infile, const char * const outfile);
  */
 static int create_entry(char* entry, int ref_size, uint64_t ref, int bit);
 
-static long get_file_size(const char * const file);
+static long long get_file_size(const char * const file);
 
-int encode_help(int ref_size, long start, long end, FILE* in, FILE* out);
+int encode_help(int ref_size, long long start, long long end, FILE* in, FILE* out);
 
-int decode_help(int ref_size, long start, long end, FILE* in, FILE* out);
+int decode_help(int ref_size, long long start, long long end, FILE* in, FILE* out);
 
 int encoding_merge(FILE** files, int num_files, char* outfile, int dict_size);
 
 // Intended to combine multiple files into one
 int merge_files(FILE** files, int num_files, FILE* outfile, int dict_size);
 
-int make_header(int dict_size, int num_threads, long* split_locs, FILE* out);
+int make_header(int dict_size, int num_threads, long long* split_locs, FILE* out);
 
 header* read_header(FILE* in);
 

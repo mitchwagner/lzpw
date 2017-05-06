@@ -126,7 +126,8 @@ int main(int argc, char** argv){
     printf("Finished parallel\n");
 
     printf("Started parallel\n");
-    parallel_decode("bigger.txt.omppw", "pookie.txt");
+    parallel_decode("puppies.jpg.omppw", "pookie.txt");
+    //parallel_decode("bigger.txt.omppw", "pookie.txt");
     printf("Finished parallel\n");
 
     // TODO: Remove input file
@@ -169,84 +170,99 @@ void parallel_encode(int num_threads, int ref_size, const char * const infile,
     // 6) Make sure to add the header described above before merging
     //             CHECK
 
-	long fsize = get_file_size(infile);
+    long long fsize = get_file_size(infile);
 
-	FILE** infiles  = malloc(num_threads * sizeof(FILE*));
-	FILE** outfiles = malloc(num_threads * sizeof(FILE*));
+    FILE** infiles  = malloc(num_threads * sizeof(FILE*));
+    FILE** outfiles = malloc(num_threads * sizeof(FILE*));
 
-	// Each thread should have about this much work to do
-	// TODO: Make sure this is safe for extremely small files (it probably
+    // Each thread should have about this much work to do
+    // TODO: Make sure this is safe for extremely small files (it probably
     // is not). Since I divide fsize by num_threads, increment could become
     // 0. Notttt good. Not good
     //
-	// TODO: Should be be an unsigned long? How big can a file be, anyway?
-	// In reality, this could would have to be a lot safer...
-	long increment = fsize / num_threads;
+    // TODO: Should be be an unsigned long? How big can a file be, anyway?
+    // In reality, this could would have to be a lot safer...
+    long long increment = fsize / num_threads;
+    printf("Increment: %llu\n", increment);
 
     // TODO: num_threads is not an accurate description of this variable.
     // In reality, it is closer to num_partitions than anything else
     #pragma omp parallel for num_threads(4)
-	for (int i = 0; i < num_threads; i++) {
+    for (int i = 0; i < num_threads; i++) {
         printf("Thread rank: %d\n", omp_get_thread_num());
         printf("Max threads: %d\n", omp_get_thread_limit());
-		infiles[i] = fopen(infile, "rb");
-		fseek(infiles[i], i * increment, SEEK_SET);
+        infiles[i] = fopen(infile, "rb");
+        fseek(infiles[i], i * increment, SEEK_SET);
 
-		// declare enough space for .part_1000
-		// TODO: This is too hard-coded or un-generalizable
+        // declare enough space for .part_1000
+        // TODO: This is too hard-coded or un-generalizable
 
-		char num_buffer[33];
-		char outname[strlen(infile) + 10];
-		memset(outname, 0, strlen(infile) + 10);
+        char num_buffer[33];
+        char outname[strlen(infile) + 10];
+        memset(outname, 0, strlen(infile) + 10);
 
-		snprintf(num_buffer,33,"%d",i); 
+        snprintf(num_buffer,33,"%d",i); 
 
-		// TODO: Is this safe???? Do I need to add null terminator?
-		// I THINK it is safe because of the strcat, not sure though.
-		memcpy(outname, infile, strlen(infile));
-		strcat(outname, ".part_");
-		strcat(outname, num_buffer);
-		outfiles[i] = fopen(outname, "wb+");
+        // TODO: Is this safe???? Do I need to add null terminator?
+        // I THINK it is safe because of the strcat, not sure though.
+        memcpy(outname, infile, strlen(infile));
+        strcat(outname, ".part_");
+        strcat(outname, num_buffer);
+        outfiles[i] = fopen(outname, "wb+");
+        printf("Just opened: %s\n", outname);
 
-        long end;
-		if (i == num_threads - 1){
-	        end = fsize;	
-		}
-		else {
-	        end = (i + 1) * increment;
-		}
+        long long end;
+        if (i == num_threads - 1){
+            end = fsize;	
+        }
+        else {
+            end = (i + 1) * increment;
+        }
 
-		encode_help(ref_size, i * increment, end, infiles[i], outfiles[i]);
+        encode_help(ref_size, i * increment, end, infiles[i], outfiles[i]);
 
-		fflush(outfiles[i]);
-	}
-	
-	char outname[strlen(infile) + 10];
-	memset(outname, 0, strlen(infile) + 10);
+        fflush(outfiles[i]);
+        //fclose(outfiles[i]);
+    } 
+    /*
+    for (int i = 0; i < num_threads; i++) {
+        char num_buffer[33];
+        char outname[strlen(infile) + 10];
+        memset(outname, 0, strlen(infile) + 10);
+        snprintf(num_buffer,33,"%d",i); 
+
+        memcpy(outname, infile, strlen(infile));
+        strcat(outname, ".part_");
+        strcat(outname, num_buffer);
+        outfiles[i] = fopen(outname, "wb+");
+        printf("Just opened this again: %s\n", outname);
+    }*/
+
+    char outname[strlen(infile) + 10];
+    memset(outname, 0, strlen(infile) + 10);
     memcpy(outname, infile, strlen(infile));
     strcat(outname, ".omppw");
+    encoding_merge(outfiles, num_threads, outname, ref_size);
 
-	encoding_merge(outfiles, num_threads, outname, ref_size);
+    for (int i = 0; i < num_threads; i++) {
+        //fclose(infiles[i]);
+	//fclose(outfiles[i]);
+    }
 
-	for (int i = 0; i < num_threads; i++) {
-		fclose(infiles[i]);
-		fclose(outfiles[i]);
-	}
-
-	free(infiles);
-	free(outfiles);
+    free(infiles);
+    free(outfiles);
 }
 
 
 // Header: [dict_size][num_threads][split locations (num_threads of them)]
 // TODO: Shit, this gets into endianess! Need to ensure this does not break
-int make_header(int dict_size, int num_threads, long* split_locs, FILE* out) {
+int make_header(int dict_size, int num_threads, long long* split_locs, FILE* out) {
     char sz = (char) dict_size;
 
     fwrite(&sz, sizeof(char), 1, out);
     fwrite(&num_threads, sizeof(int), 1, out);
     for (int i = 0; i < num_threads; i++) {
-        fwrite(&split_locs[i], sizeof(long), 1, out);
+        fwrite(&split_locs[i], sizeof(long long), 1, out);
     }
 
     return 0;
@@ -259,10 +275,10 @@ header* read_header(FILE* in){
     fread(&h->num_threads, sizeof(int), 1, in);
     printf("Bits: %d\n", h->ref_size);
     printf("Threads: %d\n", h->num_threads);
-    h->split_locs = malloc(sizeof(long) * h->num_threads);
+    h->split_locs = malloc(sizeof(long long) * h->num_threads);
 
     for (int i = 0; i < h->num_threads; i++) {
-        fread(&(h->split_locs[i]), sizeof(long), 1, in);
+        fread(&(h->split_locs[i]), sizeof(long long), 1, in);
     }
     return h;
 }
@@ -275,18 +291,19 @@ int encoding_merge(FILE** files, int num_files, char* outfile, int
     dict_size){
     
     FILE* out = fopen(outfile, "wb");
-    long split_locs[num_files];
+    long long split_locs[num_files];
 
     for (int i = 0; i < num_files; i++) {
         if (i == 0) {
-            split_locs[i] = 1 + 4 + num_files * sizeof(long);
+            split_locs[i] = 1 + 4 + num_files * sizeof(long long);
         }
         else {
-            fseek(files[i], 0, SEEK_END);
-            long len = ftell(files[i - 1]);
+            fseek(files[i - 1], 0, SEEK_END);
+            long long len = ftell(files[i - 1]);
+            printf("len from fseek: %llu\n", len);
             split_locs[i] = split_locs[i - 1] + len; 
         }
-        printf("Length is: %ld\n", split_locs[i]);
+        printf("Starting spot is: %llu\n", split_locs[i]);
     }
 
     make_header(dict_size, num_files, split_locs, out);
@@ -302,13 +319,15 @@ int encoding_merge(FILE** files, int num_files, char* outfile, int
 // Want to make sure that I can re-use this code in the decoding phase
 int merge_files(FILE** files, int num_files, FILE* outfile, int dict_size) {
 
-    char ch;
+    int ch;
     for (int i = 0; i < num_files; i++) {
+        //printf("File length: %llu\n", get_file_size(files[i]));
         fseek(files[i], 0, SEEK_SET);
         while((ch = fgetc(files[i]) ) != EOF ){
-            fputc(ch,outfile);
+            fputc((char)(ch),outfile);
         }
     }
+    printf("Done merging!\n\n");
    
     // TODO: Actual error checking
     return 0;
@@ -320,7 +339,7 @@ int merge_files(FILE** files, int num_files, FILE* outfile, int dict_size) {
 // that takes file pointers and the rest of the parameters here. ACTUALLY,
 // on that note, maybe I should abstract the serial to just call this
 // function!
-int encode_help(int ref_size, long start, long end, FILE* in, FILE* out) {
+int encode_help(int ref_size, long long start, long long end, FILE* in, FILE* out) {
     char c;
 
     short itr = 0; 
@@ -340,8 +359,8 @@ int encode_help(int ref_size, long start, long end, FILE* in, FILE* out) {
     dict.size = 1;
 
     // Number of bits this will read
-    long bits_to_get = (end - start) * 8;
-    long count = 0;
+    long long bits_to_get = (end - start) * 8;
+    long long count = 0;
 
     while ((bit = get_next_bit(&c, itr, in)) != -1 && count < bits_to_get) {
         count++;
@@ -376,16 +395,16 @@ int encode_help(int ref_size, long start, long end, FILE* in, FILE* out) {
 }
 
 // TODO: Chain error reporting up to main
-static long get_file_size(const char * const file) {
-	FILE* fp = fopen(file, "r");
-    if( fp == NULL )  {
- 	    perror ("Error opening file");
-	  	return(-1);
-   	}
-	fseek(fp, 0, SEEK_END);
-	long len = ftell(fp);
-	fclose(fp);
-	return len;
+static long long get_file_size(const char * const file) {
+    FILE* fp = fopen(file, "r");
+    if (fp == NULL)  {
+        perror ("Error opening file ahh");
+        return(-1);
+    }
+    fseek(fp, 0, SEEK_END);
+    long long len = ftell(fp);
+    fclose(fp);
+    return len;
 }
 
 int encode(int ref_size, const char * const infile, 
@@ -607,63 +626,66 @@ int parallel_decode(const char * const infile, const char* const
     printf("Reading the header\n");
     header* h = read_header(in);
 
+    long long fsize = get_file_size(infile);
+    printf("Parallel Decode fsize: %llu\n", fsize);
 
-	long fsize = get_file_size(infile);
+    FILE** infiles  = malloc(h->num_threads * sizeof(FILE*));
+    FILE** outfiles = malloc(h->num_threads * sizeof(FILE*));
 
-	FILE** infiles  = malloc(h->num_threads * sizeof(FILE*));
-	FILE** outfiles = malloc(h->num_threads * sizeof(FILE*));
-
-	for (int i = 0; i < h->num_threads; i++) {
+    for (int i = 0; i < h->num_threads; i++) {
       
-		infiles[i] = fopen(infile, "rb");
-		printf("split_locs: %ld\n", h->split_locs[i]);
-		fseek(infiles[i], h->split_locs[i], SEEK_SET);
+        infiles[i] = fopen(infile, "rb");
+        printf("split_locs: %ld\n", h->split_locs[i]);
+        fseek(infiles[i], h->split_locs[i], SEEK_SET);
 
-        long end;
-		if (i == h->num_threads - 1){
-	        end = fsize;	
-		}
-		else {
-	        end = h->split_locs[i + 1];
-		}
+        long long end;
+        if (i == h->num_threads - 1){
+            end = fsize;	
+        }
+        else {
+            end = h->split_locs[i + 1];
+        }
 
-		char num_buffer[33];
-		char outname[strlen(infile) + 10];
-		memset(outname, 0, strlen(infile) + 10);
+        char num_buffer[33];
+        char outname[strlen(infile) + 10];
+        memset(outname, 0, strlen(infile) + 10);
 
-		snprintf(num_buffer,33,"%d",i); 
+        snprintf(num_buffer,33,"%d",i); 
 
-		memcpy(outname, infile, strlen(infile));
-		strcat(outname, ".dec_");
-		strcat(outname, num_buffer);
-		outfiles[i] = fopen(outname, "wb+");
+        memcpy(outname, infile, strlen(infile));
+        strcat(outname, ".dec_");
+        strcat(outname, num_buffer);
+        outfiles[i] = fopen(outname, "wb+");
 
+        printf("Calling decode help:\n");
+        printf("Start: %llu\n", h->split_locs[i]);
+        printf("End:   %llu\n", end);
         decode_help(h->ref_size, h->split_locs[i], end, infiles[i], 
-            outfiles[i]);
+        outfiles[i]);
 
-		fflush(outfiles[i]);
-	}
+        fflush(outfiles[i]);
+    }
 
     FILE* out = fopen(outfile, "wb+");
 
-	merge_files(outfiles, h->num_threads, out, h->ref_size);
+    merge_files(outfiles, h->num_threads, out, h->ref_size);
 
-	for (int i = 0; i < h->num_threads; i++) {
-		fclose(infiles[i]);
-		fclose(outfiles[i]);
-	}
+    for (int i = 0; i < h->num_threads; i++) {
+        fclose(infiles[i]);
+        fclose(outfiles[i]);
+    }
 
-	free(infiles);
-	free(outfiles);
-
-	fclose(in);
-	fclose(out);
+    free(infiles);
+    free(outfiles);
+ 
+    fclose(in);
+    fclose(out);
     
     // TODO: Return actual error value
     return 0;
 }
 
-int decode_help(int ref_size, long start, long end, FILE* in, FILE* out) {
+int decode_help(int ref_size, long long start, long long end, FILE* in, FILE* out) {
 
     int num_bytes = get_num_bytes(ref_size);
 
@@ -679,11 +701,13 @@ int decode_help(int ref_size, long start, long end, FILE* in, FILE* out) {
     int ctr = 0;
 
     // Number of bits this will read
-    long bytes_to_get = (end - start);
-    printf("bytes_to_get: %ld\n", bytes_to_get);
-    long count = 0;
+    long long bytes_to_get = (end - start);
+    printf("Start: %llu\n", start);
+    printf("end: %llu\n", end);
+    printf("bytes_to_get: %llu\n", bytes_to_get);
+    long long count = 0;
 
-    printf("Pointer %ld\n", ftell(in));
+    //printf("Pointer %llu\n", ftell(in));
     // There should be an even multiple of num_bytes bytes in the file
     while (fread(entry, 1, num_bytes, in) != 0 && count < bytes_to_get)
     {
