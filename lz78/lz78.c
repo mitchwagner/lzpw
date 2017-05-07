@@ -400,40 +400,35 @@ int get_num_bytes(int ref_size){
     return (ref_size + 1) / 8;
 }
 
+/**
+ * Operations proceeds as follows:
+ * 1) If counter is full, flush the byte to the buffer,
+ *    then reset the byte and the counter
+ * 2) Then, add the bit to the byte via the magic of bit-shifting
+ */
 int add_to_byte(int* ctr, int bit, char* byte, FILE* out){
     if (*ctr == 8) {
-        // Flush to buffer
-        // reset byte
-        // reset ctr
-        //printf("Flushing: %d\n", *byte);
         fwrite(byte, 1, 1, out);
         *byte = 0;
         *ctr = 0;
-        //printf("Flushed!\n");
     }
-    //printf("Char was: %d\n", *byte);
     *byte = ((unsigned char)(*byte)) >> 1;
-    //printf("Char is: %d\n", *byte);
     *byte = (*byte) | bit<<7;
-    //printf("adding %d\n", bit);
-    //printf("Before Counter is: %d\n", *ctr);
     *ctr = *ctr + 1;
-    //printf("After Counter is: %d\n", *ctr);
 
     //TODO: Return real value
     return 0;
 }
 
-// I might be able to clean up the code in decode by just calling this
-// method instead of repeating basically the same lines of code. Maybeee.
+/**
+ * Operation proceeds as follows:
+ * 1) Get the ref'th entry from the dictionary
+ * 2) Extract the bit and dictionary reference from the dictionary entry
+ * 3) If the extracted dictionary reference is not 0, recurse
+ * 4) Add the bit to the byte we are currently building to output
+ */
 int walk_reference(dictionary* dict, int* ctr, uint64_t ref, int ref_size,
 char* byte, FILE* out) {
-    // Get entry from dictionary
-    // Pull out bit
-    // pull out ref
-    // Add bit
-    // If ref != 0
-    //     walk_reference(...)
 
     int num_bytes = get_num_bytes(ref_size);
     uint64_t new_ref = 0;
@@ -445,16 +440,20 @@ char* byte, FILE* out) {
     new_ref = unpack_ref(entry, ref_size);
     bit = unpack_bit(entry, ref_size);
 
-    //printf("walking, ref unpacked: %" PRIu64 "\n", new_ref);
-    //printf("walking, bit unpacked: %d\n\n", bit);
-
-    //printf("Counter is: %d\n", *ctr);
     if (new_ref != 0) {
         walk_reference(dict, ctr, new_ref, ref_size, byte, out);
     }
     add_to_byte(ctr, bit, byte, out);
 
     // TODO: Add real value
+    return 0;
+}
+
+static int init_dict(dictionary* dict, int ref_size) {
+    dict->size = 1;
+    dict->dict = init_lookup(ref_size);
+
+    // TODO: Actual error checking
     return 0;
 }
 
@@ -476,11 +475,9 @@ const char * const outfile) {
 
     int num_bytes = get_num_bytes(ref_size);
 
-    // I should really abstract this code into another method...
     dictionary dict; 
-    dict.dict = init_lookup(ref_size);
-    dict.size = 1;
-
+    init_dict(&dict, ref_size);
+ 
     char entry[get_num_bytes(ref_size)];
     uint64_t ref;
     int bit;
@@ -509,7 +506,6 @@ const char * const outfile) {
     fclose(in);
     fclose(out);
     free(dict.dict);
-
 
     // TODO: Add real value
     return 0;

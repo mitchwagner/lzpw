@@ -40,6 +40,8 @@
 // TODO: Describe the compressed header here
 // TODO: Only supports little-endian machines
 // TODO: So many of these should be static
+// TODO: encode and decode methods are more or less obsolete now
+//       and should be excised accordingly
 
 #include <stdint.h>
 #include <stdbool.h>
