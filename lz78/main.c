@@ -44,8 +44,8 @@
 #include <stdbool.h>
 #include <string.h>
 #include <inttypes.h>
+#include <omp.h>
 #include "main.h"
-#include "omp.h"
 
 // TODO: Add version info that keeps track of omp, serial, etc. 
 void print_usage(char* prog_name) {
@@ -58,8 +58,6 @@ void print_usage(char* prog_name) {
     printf("    dict_size:   size, in bytes, of dictionary entry (1 or 2)\n");
 }
 
-// TODO: the program really should have a switch for encryption/decryption
-// and not do both at once....
 int main(int argc, char** argv){
 
     if (argc != 4 && argc != 5 && argc != 6) {
@@ -108,11 +106,6 @@ int main(int argc, char** argv){
         exit(1);
     }
 
-    // char temp[strlen(infile) + 8];
-    // memset(temp, 0, strlen(infile) + 8);
-    // memcpy(temp, infile, strlen(infile));
-    // strcat(temp, ".pw");
-
     return 0;
 }
 
@@ -159,27 +152,14 @@ void parallel_encode(int num_threads, int ref_size, const char * const infile,
 
     // TODO: num_threads is not an accurate description of this variable.
     // In reality, it is closer to num_partitions than anything else
-    #pragma omp parallel for num_threads(4)
+    #pragma omp parallel for num_threads(num_threads)
     for (int i = 0; i < num_threads; i++) {
         printf("Thread rank: %d\n", omp_get_thread_num());
         printf("Max threads: %d\n", omp_get_thread_limit());
         infiles[i] = fopen(infile, "rb");
         fseek(infiles[i], i * increment, SEEK_SET);
 
-        // declare enough space for .part_1000
-        // TODO: This is too hard-coded or un-generalizable.
-        // Honestly, I do this enough that I should probably abstract it
-        // out to a method
-        char num_buffer[33];
-        snprintf(num_buffer,33,"%d",i); 
-
-        char outname[strlen(outfile) + 10];
-        memset(outname, 0, strlen(outfile) + 10);
-
-        memcpy(outname, outfile, strlen(outfile));
-        strcat(outname, ".part_");
-        strcat(outname, num_buffer);
-        outfiles[i] = fopen(outname, "wb+");
+        outfiles[i] = tmpfile();
 
         long long end;
         if (i == num_threads - 1){
@@ -196,24 +176,11 @@ void parallel_encode(int num_threads, int ref_size, const char * const infile,
         fflush(outfiles[i]);
     } 
 
-    /*
-    for (int i = 0; i < num_threads; i++) {
-        char num_buffer[33];
-        char outname[strlen(infile) + 10];
-        memset(outname, 0, strlen(infile) + 10);
-        snprintf(num_buffer,33,"%d",i); 
-
-        memcpy(outname, infile, strlen(infile));
-        strcat(outname, ".part_");
-        strcat(outname, num_buffer);
-        outfiles[i] = fopen(outname, "wb+");
-        printf("Just opened this again: %s\n", outname);
-    }*/
-
+    // TODO: Honestly, I do this enough that I should make
+    // look at making it a method somehow
     char outname[strlen(outfile) + 10];
     memset(outname, 0, strlen(outfile) + 10);
     memcpy(outname, outfile, strlen(outfile));
-    strcat(outname, ".pw");
     encoding_merge(outfiles, num_threads, outname, ref_size);
 
     for (int i = 0; i < num_threads; i++) {
@@ -604,6 +571,7 @@ int parallel_decode(int num_threads, const char * const infile,
     FILE** infiles  = malloc(h->num_threads * sizeof(FILE*));
     FILE** outfiles = malloc(h->num_threads * sizeof(FILE*));
 
+    #pragma omp parallel for num_threads(num_threads)
     for (int i = 0; i < h->num_threads; i++) {
       
         infiles[i] = fopen(infile, "rb");
@@ -618,16 +586,7 @@ int parallel_decode(int num_threads, const char * const infile,
             end = h->split_locs[i + 1];
         }
 
-        char num_buffer[33];
-        char outname[strlen(infile) + 10];
-        memset(outname, 0, strlen(infile) + 10);
-
-        snprintf(num_buffer,33,"%d",i); 
-
-        memcpy(outname, infile, strlen(infile));
-        strcat(outname, ".dec_");
-        strcat(outname, num_buffer);
-        outfiles[i] = fopen(outname, "wb+");
+        outfiles[i] = tmpfile();
 
         printf("Calling decode help:\n");
         printf("Start: %llu\n", h->split_locs[i]);
@@ -738,7 +697,7 @@ bool lookup(dictionary* dict, char* entry, uint64_t* ref, int ref_size) {
 }
 
 bool store(dictionary* dict, char* entry, uint64_t ref, int ref_size){
-    if (dict->size < (1 << ref_size)) {
+    if (dict->size < (uint64_t) (1 << ref_size)) {
         int num_bytes = get_num_bytes(ref_size);
         memcpy(dict->dict + (ref * num_bytes), entry, num_bytes);
         dict->size = dict->size + 1;
