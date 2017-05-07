@@ -245,7 +245,7 @@ int encoding_merge(FILE** files, int num_files, char* outfile, int
 
     make_header(dict_size, num_files, split_locs, out);
 
-    merge_files(files, num_files, out, dict_size);
+    merge_files(files, num_files, out);
     
     fclose(out);
 
@@ -254,7 +254,7 @@ int encoding_merge(FILE** files, int num_files, char* outfile, int
 }
 
 // Want to make sure that I can re-use this code in the decoding phase
-int merge_files(FILE** files, int num_files, FILE* outfile, int dict_size) {
+int merge_files(FILE** files, int num_files, FILE* outfile) {
 
     int ch;
     for (int i = 0; i < num_files; i++) {
@@ -277,7 +277,7 @@ int merge_files(FILE** files, int num_files, FILE* outfile, int dict_size) {
 // on that note, maybe I should abstract the serial to just call this
 // function!
 int encode_help(int ref_size, long long start, long long end, FILE* in, FILE* out) {
-    char c;
+    char c = 0;
 
     short itr = 0; 
     int bit = 0;
@@ -351,7 +351,7 @@ const char * const outfile) {
     FILE* in = fopen(infile, "rb");
     FILE* out = fopen(outfile, "wb");
 
-    char c;
+    char c = 0;
 
     short itr = 0; 
     int bit = 0;
@@ -599,7 +599,7 @@ int parallel_decode(int num_threads, const char * const infile,
 
     FILE* out = fopen(outfile, "wb+");
 
-    merge_files(outfiles, h->num_threads, out, h->ref_size);
+    merge_files(outfiles, h->num_threads, out);
 
     for (int i = 0; i < h->num_threads; i++) {
         fclose(infiles[i]);

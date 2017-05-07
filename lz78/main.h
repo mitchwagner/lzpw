@@ -36,6 +36,7 @@
 
 // TODO: Describe the compressed header here
 // TODO: Only supports little-endian machines
+// TODO: So many of these should be static
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -48,12 +49,16 @@
  * entry is the bit to append to the bit sequence referenced by the rest of 
  * the bits when shifted to the right. If the reference is 0, the bit is the 
  * last bit in the sequence.
+ *
  * Example:
  * 0: LEFT EMPTY
  * 1: 0000 0001 Encodes 1
  * 2: 0000 0010 Encodes 10
  * 3: 0000 0000 Encodes 0
  * 4: 0000 0101 Encodes 101
+ *
+ * TODO: When the dictionary fills up, no new entries are added. Might
+ * be better to just start over to exploit symmetry through locality 
  * TODO: Might be better to encode ref_size in the dictioanry struct itself
  */
 typedef struct _dict {
@@ -82,8 +87,7 @@ char* init_lookup(int ref_size);
  *
  * @param dict The dictionary involved in lookup
  * @param entry Pointer to the entry to find in the dictionary
- * @param ref If lookup is successful, store resulting entry at location 
- *     indicated by this pointer
+ * @param ref If lookup is successful, store resulting entry at location *     indicated by this pointer
  * @param ref_size The size, in bits, of each dictionary reference.
  *
  * @return true if lookup is successful, false if otherwise
@@ -131,30 +135,43 @@ int get_num_bytes(int ref_size);
 int get_num_bytes(int ref_size);
 
 /**
- * Encodes a file with LZ78 encryption for compression
+ * Compresses a file using LZ78 
  * 
  * @param ref_size The size, in bits, of each dictionary reference
  * @param infile The file to compress
  * @param outfile The name of the output file
+ * @return TODO
  */
 int encode(int ref_size, const char * const infile, const char * const outfile);
 
 /**
- * TODO: Document!
+ * Compress a file in parallel using LZ78
+ *
+ * @param num_threads The number of threads to use while compressing
+ * @param ref_size The size of the dictionary to use for compression
+ * @param infile The file to compress
+ * @param outfile The name of the output file
  */
 void parallel_encode(int num_threads, int ref_size, const char * const infile,
     const char * const outfile);
 
 /**
  * Decodes a file encrypted by this LZ78 implementation
+ *
  * @param ref_size The size, in bits, of each dictioanry reference 
- * @param infile The file to decode
+ * @param infile The file to decompress 
  * @param outfile The name of the output file
+ * @return TODO
  */
 int decode(int ref_size, const char * const infile, const char * const outfile);
 
 /**
- * TODO: Document!
+ * Decompresses a file, compressed by this program using LZ78, in parallel
+ *
+ * @param num_threads The number of threads to use in decompression
+ * @param infile The file to decompress
+ * @param outfile The name of the output file
+ * @return TODO
  */
 int parallel_decode(int num_threads, const char * const infile, const char * const outfile);
 
@@ -166,25 +183,87 @@ int parallel_decode(int num_threads, const char * const infile, const char * con
  * @param ref_size The size, in bits, of each dictionary reference
  * @param ref The dictionary reference
  * @param bit The bit 
+ * @return TODO
  */
 static int create_entry(char* entry, int ref_size, uint64_t ref, int bit);
 
+/**
+ * Utility function for getting the length of a given file
+ *
+ * @param file The name of the file whose length to get
+ * @return The length of the file
+ */
 static long long get_file_size(const char * const file);
 
+/**
+ * Called by each thread during parallel compression 
+ * 
+ * @param ref_size The size, in bits, of each dictionary reference
+ * @param start The location in the file the thread should begin compression at
+ * @param end The location in the file the thread should cease compression at
+ * @param in The file to compress
+ * @param out Temporary file the thread should write its work to. Each thread's
+ *     temporary file will ultimately be merged to create the output file.
+ * @return TODO
+ */
 int encode_help(int ref_size, long long start, long long end, FILE* in, FILE* out);
 
+/**
+ * Called by each thread during parallel decompression, or by a single 
+ * thread as it decompresses each part of a parallel-compressed file.
+ *
+ * @param ref_size The size, in bits, of each dictionary reference during 
+ *     compression
+ * @param start The location in the file the thread should begin 
+ *     decompression at
+ * @param end The location in the file the thead should cease decompression at
+ * @param in The file to be decompressed
+ * @param out Temporary file the thread should write its work to. Each thread's
+ *     temporary file will ultimately be merged to create the output file.
+ * @return TODO
+ */
 int decode_help(int ref_size, long long start, long long end, FILE* in, FILE* out);
 
+/**
+ * Merges a number of files together, adding a header to describe the 
+ * compression conditions (needed to facilitate decompression).
+ *
+ * @param files The files to merge together
+ * @param num_files The number of files to be merged together
+ * @param outfile The name of the resulting output file
+ * @param dict_size The size of the dictionary entries used for compression
+ * @return TODO
+ */
 int encoding_merge(FILE** files, int num_files, char* outfile, int dict_size);
 
-// Intended to combine multiple files into one
-int merge_files(FILE** files, int num_files, FILE* outfile, int dict_size);
+/**
+ * Merges an array of files into a single file
+ *
+ * @param files The files to merge together
+ * @param num_files The number of files to merge together
+ * @param outfile The name of the resulting merged file 
+ * @return TODO
+ */
+int merge_files(FILE** files, int num_files, FILE* outfile);
 
+/**
+ * Adds this implementation's LZ78 header to the beginning of a compressed file.
+ *
+ * @param dict_size The size of the dictionary entries used for compression
+ * @param num_threads The number of partitions encoded in parallel and merged
+ * @param split_locs The locations of each partition in the merged file
+ * @param out The output file to add the header to
+ * @return TODO
+ */
 int make_header(int dict_size, int num_threads, long long* split_locs, FILE* out);
 
+/**
+ * Reads the header at the beginning of a compressed file,
+ * and packs the information into a header object
+ *
+ * @param in A file compressed by this LZ78 implementation
+ * @return Pointer to a header object
+ */
 header* read_header(FILE* in);
-
-// Intended to remove unnecessary files
-int clean_up();
 
 #endif

@@ -1,7 +1,7 @@
 .RECIPEPREFIX += 
 
 GCC = gcc
-GCCFLAGS = -std=c99 -W -Wall -Werror -O3 -ggdb3
+GCCFLAGS = -std=c99 -W -Wall -O3 -ggdb3
 
 PGCC = pgcc
 
