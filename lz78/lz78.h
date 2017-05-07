@@ -32,6 +32,9 @@
  * split_locations: an array denoting the position in the
  *     compressed file that are the beginning of merged files
  *     that need to be decompressed individually
+ *
+ * Author: Mitch Wagner
+ * Date:   May 8, 2017
  */
 
 // TODO: Describe the compressed header here
