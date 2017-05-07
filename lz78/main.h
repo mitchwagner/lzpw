@@ -4,7 +4,7 @@
 /**
  * This file exposes an interface for bitwise encryption via the LZ78
  * algorithm.  The dictionary is implemented naively, via an array of
- * characters.
+ * characters. Currently, only little endian machines are supported.
  *
  * In the LZ78 algorithm, each entry in the dictionary consists of two parts:
  * an offset into the dictionary potentially referencing a previous entry,
@@ -14,11 +14,28 @@
  * In this implementation, every entry in the dictionary is some multiple n of
  * bytes (1, 2, etc.) The last (n * 8) - 1 bits encode an offset into the
  * dictionary. The first bit is the bit to append.
+ *
+ * Parallel encryption is implemented via breaking the input file into 
+ * separate pieces and running the compression algorithm in parallel
+ * on each piece, merging the pieces at the end.
+ *
+ * In order to facilitate decompression, a header is appended to the
+ * beginning of every compressed file:
+ *
+ * [dict_size][num_threads][split_locations (num_threads of them)]
+ *
+ * dict_size: encodes how large the dictionary used to compress the
+ *     data was 
+ *
+ * num_threads: the number of partitions used to split the data
+ *
+ * split_locations: an array denoting the position in the
+ *     compressed file that are the beginning of merged files
+ *     that need to be decompressed individually
  */
 
- // TODO: It would be good to store a header file describing information about
- // the encryption. Of course, at that point, following standard ZIP format
- // might be more beneficial
+// TODO: Describe the compressed header here
+// TODO: Only supports little-endian machines
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -26,7 +43,17 @@
 
 /**
  * Simple dictionary, implemented as a list, for storing previously-seen
- * patterns. 
+ * patterns. The dictionary is currently implemented such that each entry
+ * in the dictionary consists of some number of bytes. The first bit of that
+ * entry is the bit to append to the bit sequence referenced by the rest of 
+ * the bits when shifted to the right. If the reference is 0, the bit is the 
+ * last bit in the sequence.
+ * Example:
+ * 0: LEFT EMPTY
+ * 1: 0000 0001 Encodes 1
+ * 2: 0000 0010 Encodes 10
+ * 3: 0000 0000 Encodes 0
+ * 4: 0000 0101 Encodes 101
  * TODO: Might be better to encode ref_size in the dictioanry struct itself
  */
 typedef struct _dict {
@@ -129,7 +156,7 @@ int decode(int ref_size, const char * const infile, const char * const outfile);
 /**
  * TODO: Document!
  */
-int parallel_decode(const char * const infile, const char * const outfile);
+int parallel_decode(int num_threads, const char * const infile, const char * const outfile);
 
 /**
  * Utility function to combine a bit and a dictionary reference into a single

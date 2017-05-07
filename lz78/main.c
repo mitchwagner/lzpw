@@ -1,14 +1,8 @@
-// Specify default parameters
-// Serial/Parallel
-// If parallel, partition size
-// Dictionary size
-// Open file
-// 
 // Should make sure that I have proper return values everywhere
 // Store documentation in HEADER files.
 // Need to make sure that every function in here is in the header file
 
-// Oh holy fuck there is a difference between bit-level and byte-level
+// There is a difference between bit-level and byte-level
 // encoding. By using bytes, I'm literally just passing the buck and saying
 // that I am hoping that specific combinations of bytes appear frequently,
 // as opposed to saying that I hope specific combinations of bits appear
@@ -35,24 +29,6 @@
 // a constant number n bytes, throw them away, and grab the next pair. The
 // other scheme is possible, but more difficult to implement.
 
-
-// I could include another command-line arg for the number of threads
-// in addition to a command-line option for CPU or GPU (might be extra, little
-// tough to implement)
-//
-// When I know the number of threads, I do the following:
-//      1) Divide the file into bytes per thread
-//      2) Instead of writing directly to a file, writing to a buffer
-//         (This might be an optimization)
-//      3) Merge files/buffers
-//      4) Probably keep some kind of header on the beginning of the format
-//         to keep track of the dict_size and the split locations. I need
-//         the split locations at least, because the resulting encoding
-//         will not allow automatic detection of thread boundaries 
-//       
-// Header: [dict_size][num_threads][split locations (num_threads of them)]
-// At worst, this adds overhead of a few hundred bytes
-
 // Okay, so that raises another issue...
 // How do we make sure that everything works out correctly w/r.t. GPU
 // writing to buffers? I have to transfer data and allocate enough space on the
@@ -71,31 +47,38 @@
 #include "main.h"
 #include "omp.h"
 
+// TODO: Add version info that keeps track of omp, serial, etc. 
 void print_usage(char* prog_name) {
     printf("LZ78 Encryption Tool:\n");
-    printf("Usage: %s infile outfile [dict_size]\n" , prog_name);
-    printf("    infile:    file to compress\n");
-    printf("    outfile:   file to write result to\n");
-    printf("    dict_size: size, in bytes, of dictionary entry (1 or 2)\n");
+    printf("Usage: %s op infile outfile [num_threads] [dict_size]\n" , prog_name);
+    printf("    op:          \"compress\" or \"decompress\"\n");
+    printf("    infile:      file to compress\n");
+    printf("    outfile:     file to write result to\n");
+    printf("    num_threads: number of threads to use (1-64) \n");
+    printf("    dict_size:   size, in bytes, of dictionary entry (1 or 2)\n");
 }
 
 // TODO: the program really should have a switch for encryption/decryption
 // and not do both at once....
 int main(int argc, char** argv){
 
-    if (argc != 3 && argc != 4) {
+    if (argc != 4 && argc != 5 && argc != 6) {
         print_usage(argv[0]);
         exit(1);
     }
 
-    char* infile = argv[1];
-    char* outfile = argv[2];
+    char* infile = argv[2];
+    char* outfile = argv[3];
     int dict_size = 15;
 
-    if (argc == 4) {
-        printf("Got here\n");
-        int size = strtol(argv[3], NULL, 10);
-        printf("Got here\n");
+    int num_threads = 1;
+
+    if (argc == 5) {
+        num_threads = strtol(argv[4], NULL, 10);
+    }
+
+    if (argc == 6) {
+        int size = strtol(argv[5], NULL, 10);
 
         if (size == 1) {
             dict_size = 7;
@@ -109,66 +92,55 @@ int main(int argc, char** argv){
         }
     }
 
-    char temp[strlen(infile) + 2];
-    memset(temp, 0, strlen(infile) +2);
-	// TODO: Is this safe???? Do I need to add null terminator?
-    memcpy(temp, infile, strlen(infile));
-    strcat(temp, ".pw");
+    if (strcmp(argv[1],"compress") == 0) {
+        // TODO: Error checking 
+        // encode(dict_size, infile, temp); 
+        parallel_encode(num_threads, dict_size, infile, outfile);
+    }
+    else if (strcmp(argv[1], "decompress") == 0) {
+        // TODO: Error checking
+        // decode(dict_size, temp, outfile);
+        // TODO: Add numthreads to this
+        parallel_decode(num_threads, infile, outfile);
+    }
+    else {
+        print_usage(argv[0]);
+        exit(1);
+    }
 
-    // TODO: Error checking 
-    encode(dict_size, infile, temp); 
-    decode(dict_size, temp, outfile);
-
-    printf("Started parallel\n");
-
-    parallel_encode(4, dict_size, infile, outfile);
-
-    printf("Finished parallel\n");
-
-    printf("Started parallel\n");
-    parallel_decode("puppies.jpg.omppw", "pookie.txt");
-    //parallel_decode("bigger.txt.omppw", "pookie.txt");
-    printf("Finished parallel\n");
-
-    // TODO: Remove input file
+    // char temp[strlen(infile) + 8];
+    // memset(temp, 0, strlen(infile) + 8);
+    // memcpy(temp, infile, strlen(infile));
+    // strcat(temp, ".pw");
 
     return 0;
 }
 
 static int get_next_bit(char* c, uint64_t itr, FILE* in){
     if (itr == 0) {
-        //printf("\n");
-        //if (fgets(c, 2, in) == NULL) { 
-        //    return -1;
-        //}
         *c = fgetc(in);
         if (feof(in)){
             return -1;
         }
     }
-    //printf("Character read: %c ",*c);
     int val = *c & 1;
     *c = *c >> 1;
     return val;
 }
 
+/**
+ * Operation proceeds as follows:
+ * 1) Get the size of the file to be compressed, in bytes
+ * 2) Create an array of pointers to the file to be read and the files 
+ *    to be written
+ * 3) Partition the infile by advancing pointers by standard increment
+ *    per thread
+ * 4) Have each file write to their respective outfile, compressing
+ *    their respective parts of the infile
+ * 5) Merge the outfiles, adding a header for information
+ */
 void parallel_encode(int num_threads, int ref_size, const char * const infile,
     const char * const outfile){
-
-    // 1) Get the size of the file in bytes 
-	//             CHECK
-    // 2) Create an array of pointers to infile, and outfiles
-	//             CHECK
-    // 3) Partition infile by advancing the pointers on each some distance
-    //    based on the number of threads and the size of the file, in bytes
-	//             CHECK
-    // 4) Have each file write to respective outfile, performing encoding
-    //    on their pieces
-    //             CHECK
-    // 5) Merge the files
-    //             CHECK
-    // 6) Make sure to add the header described above before merging
-    //             CHECK
 
     long long fsize = get_file_size(infile);
 
@@ -178,8 +150,8 @@ void parallel_encode(int num_threads, int ref_size, const char * const infile,
     // Each thread should have about this much work to do
     // TODO: Make sure this is safe for extremely small files (it probably
     // is not). Since I divide fsize by num_threads, increment could become
-    // 0. Notttt good. Not good
-    //
+    // 0. Not good.
+ 
     // TODO: Should be be an unsigned long? How big can a file be, anyway?
     // In reality, this could would have to be a lot safer...
     long long increment = fsize / num_threads;
@@ -195,21 +167,19 @@ void parallel_encode(int num_threads, int ref_size, const char * const infile,
         fseek(infiles[i], i * increment, SEEK_SET);
 
         // declare enough space for .part_1000
-        // TODO: This is too hard-coded or un-generalizable
-
+        // TODO: This is too hard-coded or un-generalizable.
+        // Honestly, I do this enough that I should probably abstract it
+        // out to a method
         char num_buffer[33];
-        char outname[strlen(infile) + 10];
-        memset(outname, 0, strlen(infile) + 10);
-
         snprintf(num_buffer,33,"%d",i); 
 
-        // TODO: Is this safe???? Do I need to add null terminator?
-        // I THINK it is safe because of the strcat, not sure though.
-        memcpy(outname, infile, strlen(infile));
+        char outname[strlen(outfile) + 10];
+        memset(outname, 0, strlen(outfile) + 10);
+
+        memcpy(outname, outfile, strlen(outfile));
         strcat(outname, ".part_");
         strcat(outname, num_buffer);
         outfiles[i] = fopen(outname, "wb+");
-        printf("Just opened: %s\n", outname);
 
         long long end;
         if (i == num_threads - 1){
@@ -221,9 +191,11 @@ void parallel_encode(int num_threads, int ref_size, const char * const infile,
 
         encode_help(ref_size, i * increment, end, infiles[i], outfiles[i]);
 
+        // TODO: I might not need to do this here, might just slow
+        // things down.
         fflush(outfiles[i]);
-        //fclose(outfiles[i]);
     } 
+
     /*
     for (int i = 0; i < num_threads; i++) {
         char num_buffer[33];
@@ -238,24 +210,22 @@ void parallel_encode(int num_threads, int ref_size, const char * const infile,
         printf("Just opened this again: %s\n", outname);
     }*/
 
-    char outname[strlen(infile) + 10];
-    memset(outname, 0, strlen(infile) + 10);
-    memcpy(outname, infile, strlen(infile));
-    strcat(outname, ".omppw");
+    char outname[strlen(outfile) + 10];
+    memset(outname, 0, strlen(outfile) + 10);
+    memcpy(outname, outfile, strlen(outfile));
+    strcat(outname, ".pw");
     encoding_merge(outfiles, num_threads, outname, ref_size);
 
     for (int i = 0; i < num_threads; i++) {
-        //fclose(infiles[i]);
-	//fclose(outfiles[i]);
+        fclose(infiles[i]);
+	fclose(outfiles[i]);
     }
 
     free(infiles);
     free(outfiles);
 }
 
-
-// Header: [dict_size][num_threads][split locations (num_threads of them)]
-// TODO: Shit, this gets into endianess! Need to ensure this does not break
+// TODO: This only allows little endian
 int make_header(int dict_size, int num_threads, long long* split_locs, FILE* out) {
     char sz = (char) dict_size;
 
@@ -555,6 +525,16 @@ char* byte, FILE* out) {
     return 0;
 }
 
+/**
+ * Operation proceeds as follows:
+ * 1) Initialize the dictionary
+ * 2) Grab the next set of bytes from the compressed file
+ * 3) Add the new entry to the database
+ * 4) Unpack the reference and the bit
+ * 5) Walk the new reference, incrementally building up a byte to flush
+ *    (this is done automatically via another method)
+ * 6) Repeat until the entire file has been decompressed
+ */
 int decode(int ref_size, const char * const infile, 
 const char * const outfile) {
 
@@ -597,29 +577,21 @@ const char * const outfile) {
     fclose(out);
     free(dict.dict);
 
-    // Initialize dictionary CHECK
-    // Loop:
-    // Grab the next set of bytes CHECK
-    // Add the entry to the database CHECK
-    // unpack the reference and the bit CHECK
-    // walk the reference, adding the bits to the byte. That function will
-    // flush as necessary.
-    // Add the bit to the byte
-    // repeat.
-
 
     // TODO: Add real value
     return 0;
 }
 
-int parallel_decode(const char * const infile, const char* const
-    outfile) {
-    // Read the header from the infile
-    //     CHECK
-    // This might be somewhat slow, but we can again create file pointers
-    //     CHECK
-    // and do parallel reading and writing of this file, and merge
-    // everything together.
+/**
+ * Operation proceeds as follows:
+ * 1) Read the header from the infile to initialize parameters
+ * 2) Perform inverse of parallel encode, creating a number of 
+ *    pointers to the same infile and a number of outfiles
+ *    to decompress the infile in parallel.
+ * 3) As with parallel encode, merge the outfiles together.
+ */
+int parallel_decode(int num_threads, const char * const infile, 
+    const char* const outfile) {
 
     FILE* in = fopen(infile, "rb");
 
@@ -736,19 +708,17 @@ int decode_help(int ref_size, long long start, long long end, FILE* in, FILE* ou
 }
 
 
-
+/**
+ * (15 + 1) / 8 = 2 bytes
+ * 2 bytes * 2^15 = number of entries
+ */
 char* init_lookup(int ref_size) {
-    // (15 + 1) / 8 = 2 bytes
-    // 2 bytes * 2^15 = number of entries
     return malloc(get_num_bytes(ref_size) * (1 << ref_size));
 }
 
-// I can also optimize this by using ref to begin the search, instead of
-// starting at 0 each time, which will aboslutely not bear fruit!
 bool lookup(dictionary* dict, char* entry, uint64_t* ref, int ref_size) {
     int num_bytes = get_num_bytes(ref_size);
 
-    // Look through the array and compare everything
     int val;
     uint64_t i;
     if (*ref == 0) {
@@ -761,20 +731,13 @@ bool lookup(dictionary* dict, char* entry, uint64_t* ref, int ref_size) {
         val = memcmp(entry, dict->dict + (i * num_bytes), num_bytes);
         if (val == 0) {
             *ref = i;
-            // printf("ref going out is %" PRIu64 "", *ref);
             return true;
         }
     }
     return false;
 }
 
-// Store function (takes key, value, stores it)
-// Honestly, we should probably increment the store here...
-// HONESTLY, I should probably refactor this. The dictionary does not need
-// to be told what its size is. It should be able to figure that one out.
-// ref == location in the dictionary to store the thing
 bool store(dictionary* dict, char* entry, uint64_t ref, int ref_size){
-    // I should make sure to check this logic
     if (dict->size < (1 << ref_size)) {
         int num_bytes = get_num_bytes(ref_size);
         memcpy(dict->dict + (ref * num_bytes), entry, num_bytes);
@@ -782,8 +745,4 @@ bool store(dictionary* dict, char* entry, uint64_t ref, int ref_size){
         return true;
     }
     return false;
-    //printf("Storing: %*.*s\n", num_bytes, num_bytes, entry);
 }
-
-/**
- */
