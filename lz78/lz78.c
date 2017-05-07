@@ -1,43 +1,6 @@
-// Should make sure that I have proper return values everywhere
-// Store documentation in HEADER files.
-// Need to make sure that every function in here is in the header file
-
-// There is a difference between bit-level and byte-level
-// encoding. By using bytes, I'm literally just passing the buck and saying
-// that I am hoping that specific combinations of bytes appear frequently,
-// as opposed to saying that I hope specific combinations of bits appear
-// frequently...
-// But are the odds that a byte follows a byte as good as a bit following a
-// a bit? I think not. There are SO MANY combinations different bytes! 256, to
-// be precise, whereas there are only 2 combinations of different bits...
-// 
-
-// Okay, so, here is the deal. I could easily make it operate on bytes.
-// Dictionary:
-// [byte][variable length references
-// [byte][variable length references
-// [byte][variable length references
-// I could also make it operate on bits:
-// Dictionry:
-// [reference][1]
-// [reference][1] // Where the last bit of each entry is the new bit
-// Now, theoretically, I could make that work with any size reference.
-// HOWEVER, because the fundamental unit is a BYTE and not a bit,
-// the second scheme becomes MUCH MORE CONVENIENT to access if the reference
-// size is 7 bytes, or 15 bytes, or 23, or 31, etc., because otherwise,
-// I have to do math to access the right bytes. This way, I can access grab
-// a constant number n bytes, throw them away, and grab the next pair. The
-// other scheme is possible, but more difficult to implement.
-
-// Okay, so that raises another issue...
-// How do we make sure that everything works out correctly w/r.t. GPU
-// writing to buffers? I have to transfer data and allocate enough space on the
-// GPU to write to these files...or else, I just have to let the GPUs write
-// to the files, right? That would seem to be the most prudent option, because
-// that is how I do things now: buffered file IO. If I wanted to do 
-// something where I was writing to buffers instead of files, I would have to
-// figure out how that would work serially before I looked parallel.
-
+/**
+ * 
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -45,7 +8,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include <omp.h>
-#include "main.h"
+#include "lz78.h"
 
 // TODO: Add version info that keeps track of omp, serial, etc. 
 void print_usage(char* prog_name) {
