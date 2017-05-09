@@ -114,14 +114,11 @@ void parallel_encode(int num_threads, int ref_size, const char * const infile,
     // TODO: Should be be an unsigned long? How big can a file be, anyway?
     // In reality, this could would have to be a lot safer...
     long long increment = fsize / num_threads;
-    printf("Increment: %llu\n", increment);
 
     // TODO: num_threads is not an accurate description of this variable.
     // In reality, it is closer to num_partitions than anything else
     #pragma omp parallel for num_threads(num_threads)
     for (int i = 0; i < num_threads; i++) {
-        printf("Thread rank: %d\n", omp_get_thread_num());
-        printf("Max threads: %d\n", omp_get_thread_limit());
         infiles[i] = fopen(infile, "rb");
         fseek(infiles[i], i * increment, SEEK_SET);
 
@@ -139,7 +136,7 @@ void parallel_encode(int num_threads, int ref_size, const char * const infile,
 
         // TODO: I might not need to do this here, might just slow
         // things down.
-        fflush(outfiles[i]);
+        // fflush(outfiles[i]);
     } 
 
     // TODO: Honestly, I do this enough that I should make
@@ -176,8 +173,6 @@ header* read_header(FILE* in){
     header* h = malloc(sizeof(header));
     fread(&h->ref_size, sizeof(char), 1, in);
     fread(&h->num_threads, sizeof(int), 1, in);
-    printf("Bits: %d\n", h->ref_size);
-    printf("Threads: %d\n", h->num_threads);
     h->split_locs = malloc(sizeof(long long) * h->num_threads);
 
     for (int i = 0; i < h->num_threads; i++) {
@@ -203,10 +198,8 @@ int encoding_merge(FILE** files, int num_files, char* outfile, int
         else {
             fseek(files[i - 1], 0, SEEK_END);
             long long len = ftell(files[i - 1]);
-            printf("len from fseek: %llu\n", len);
             split_locs[i] = split_locs[i - 1] + len; 
         }
-        printf("Starting spot is: %llu\n", split_locs[i]);
     }
 
     make_header(dict_size, num_files, split_locs, out);
@@ -224,13 +217,11 @@ int merge_files(FILE** files, int num_files, FILE* outfile) {
 
     int ch;
     for (int i = 0; i < num_files; i++) {
-        //printf("File length: %llu\n", get_file_size(files[i]));
         fseek(files[i], 0, SEEK_SET);
         while((ch = fgetc(files[i]) ) != EOF ){
             fputc((char)(ch),outfile);
         }
     }
-    printf("Done merging!\n\n");
    
     // TODO: Actual error checking
     return 0;
@@ -268,15 +259,12 @@ int encode_help(int ref_size, long long start, long long end, FILE* in, FILE* ou
     while ((bit = get_next_bit(&c, itr, in)) != -1 && count < bits_to_get) {
         count++;
 
-        //printf("%d", bit);
         itr = (itr + 1) % 8;
 
         create_entry(entry, ref_size, ref, bit);
 
         // Get updated index if it exists in the table
         present = lookup(&dict, entry, &ref, ref_size);
-
-        //printf(" was found: %s", present ? "true\n" : "false\n");
 
         if (!present) {
             store(&dict, entry, dict.size, ref_size);
@@ -310,61 +298,6 @@ static long long get_file_size(const char * const file) {
     return len;
 }
 
-int encode(int ref_size, const char * const infile, 
-const char * const outfile) {
-   
-    // http://stackoverflow.com/questions/20863959/difference-between-opening-a-file-in-binary-vs-text
-    FILE* in = fopen(infile, "rb");
-    FILE* out = fopen(outfile, "wb");
-
-    char c = 0;
-
-    short itr = 0; 
-    int bit = 0;
-    uint64_t ref = 0;
-    bool present = false;
-
-    // Char array big enough to hold the reference
-    char entry[get_num_bytes(ref_size)];
-
-    dictionary dict; 
-    dict.dict = init_lookup(ref_size);
-
-    // This might be a bug in the distant future.
-    // This is to avoid conflicts that point things to the 0th index, and
-    // lets us reserve 0 to indicate no preceding character.
-    dict.size = 1;
-
-    while ((bit = get_next_bit(&c, itr, in)) != -1) {
-        //printf("%d", bit);
-        itr = (itr + 1) % 8;
-
-        create_entry(entry, ref_size, ref, bit);
-
-        // Get updated index if it exists in the table
-        present = lookup(&dict, entry, &ref, ref_size);
-
-        //printf(" was found: %s", present ? "true\n" : "false\n");
-
-        if (!present) {
-            store(&dict, entry, dict.size, ref_size);
-            // This shouldn't be done here...
-            fwrite(entry, 1, get_num_bytes(ref_size), out);
-            ref = 0;
-        }
-        else if (present){
-            // printf("ref is %" PRIu64 "\n" ,  ref);
-            // Ref has been updated. Get next character and continue process
-        }
-    }
-    if (ref != 0) {
-        fwrite(entry, 1, get_num_bytes(ref_size), out);
-    }
-    fclose(in);
-    fclose(out);
-    free(dict.dict);
-    return 0;
-}
 
 static int create_entry(char* entry, int ref_size, uint64_t ref, int bit) { 
     ref = ref << 1;
@@ -459,60 +392,6 @@ static int init_dict(dictionary* dict, int ref_size) {
 
 /**
  * Operation proceeds as follows:
- * 1) Initialize the dictionary
- * 2) Grab the next set of bytes from the compressed file
- * 3) Add the new entry to the database
- * 4) Unpack the reference and the bit
- * 5) Walk the new reference, incrementally building up a byte to flush
- *    (this is done automatically via another method)
- * 6) Repeat until the entire file has been decompressed
- */
-int decode(int ref_size, const char * const infile, 
-const char * const outfile) {
-
-    FILE* in = fopen(infile, "rb");
-    FILE* out = fopen(outfile, "wb");
-
-    int num_bytes = get_num_bytes(ref_size);
-
-    dictionary dict; 
-    init_dict(&dict, ref_size);
- 
-    char entry[get_num_bytes(ref_size)];
-    uint64_t ref;
-    int bit;
-    char out_byte = 0;
-    int ctr = 0;
-
-    // There should be an even multiple of num_bytes bytes in the file
-    while (fread(entry, 1, num_bytes, in) != 0)
-    {
-        store(&dict, entry, dict.size, ref_size);
-        ref = unpack_ref(entry, ref_size);
-        bit = unpack_bit(entry, ref_size);
-        //printf("ref unpacked: %" PRIu64 "\n", ref);
-        //printf("bit unpacked: %d\n\n", bit);
-
-        // Walk reference, will need to pass itr
-        if (ref != 0) {
-            walk_reference(&dict, &ctr, ref, ref_size, &out_byte, out);
-        }
-        add_to_byte(&ctr, bit, &out_byte, out);
-    }
-    // Flush the last byte. Might be able to re-organize so that we flush
-    // if the counter goes over so we don't have to do this here.
-    fwrite(&out_byte, 1, 1, out);
-
-    fclose(in);
-    fclose(out);
-    free(dict.dict);
-
-    // TODO: Add real value
-    return 0;
-}
-
-/**
- * Operation proceeds as follows:
  * 1) Read the header from the infile to initialize parameters
  * 2) Perform inverse of parallel encode, creating a number of 
  *    pointers to the same infile and a number of outfiles
@@ -524,21 +403,25 @@ int parallel_decode(int num_threads, const char * const infile,
 
     FILE* in = fopen(infile, "rb");
 
-    printf("Reading the header\n");
+    // printf("Reading the header\n");
     header* h = read_header(in);
 
     long long fsize = get_file_size(infile);
-    printf("Parallel Decode fsize: %llu\n", fsize);
+    // printf("Parallel Decode fsize: %llu\n", fsize);
 
     FILE** infiles  = malloc(h->num_threads * sizeof(FILE*));
     FILE** outfiles = malloc(h->num_threads * sizeof(FILE*));
 
+    if (num_threads > h->num_threads) {
+        num_threads = h->num_threads;
+    }
+
     #pragma omp parallel for num_threads(num_threads)
     for (int i = 0; i < h->num_threads; i++) {
-      
         infiles[i] = fopen(infile, "rb");
-        printf("split_locs: %ld\n", h->split_locs[i]);
+        // printf("split_locs: %ld\n", h->split_locs[i]);
         fseek(infiles[i], h->split_locs[i], SEEK_SET);
+        //printf("Thread num: %d\n", omp_get_thread_num());
 
         long long end;
         if (i == h->num_threads - 1){
@@ -550,13 +433,13 @@ int parallel_decode(int num_threads, const char * const infile,
 
         outfiles[i] = tmpfile();
 
-        printf("Calling decode help:\n");
-        printf("Start: %llu\n", h->split_locs[i]);
-        printf("End:   %llu\n", end);
+        // printf("Calling decode help:\n");
+        // printf("Start: %llu\n", h->split_locs[i]);
+        // printf("End:   %llu\n", end);
         decode_help(h->ref_size, h->split_locs[i], end, infiles[i], 
         outfiles[i]);
 
-        fflush(outfiles[i]);
+        // fflush(outfiles[i]);
     }
 
     FILE* out = fopen(outfile, "wb+");
@@ -578,6 +461,16 @@ int parallel_decode(int num_threads, const char * const infile,
     return 0;
 }
 
+/**
+ * Operation proceeds as follows:
+ * 1) Initialize the dictionary
+ * 2) Grab the next set of bytes from the compressed file
+ * 3) Add the new entry to the database
+ * 4) Unpack the reference and the bit
+ * 5) Walk the new reference, incrementally building up a byte to flush
+ *    (this is done automatically via another method)
+ * 6) Repeat until the entire file has been decompressed
+ */
 int decode_help(int ref_size, long long start, long long end, FILE* in, FILE* out) {
 
     int num_bytes = get_num_bytes(ref_size);
@@ -595,9 +488,9 @@ int decode_help(int ref_size, long long start, long long end, FILE* in, FILE* ou
 
     // Number of bits this will read
     long long bytes_to_get = (end - start);
-    printf("Start: %llu\n", start);
-    printf("end: %llu\n", end);
-    printf("bytes_to_get: %llu\n", bytes_to_get);
+    // printf("Start: %llu\n", start);
+    // printf("end: %llu\n", end);
+    // printf("bytes_to_get: %llu\n", bytes_to_get);
     long long count = 0;
 
     //printf("Pointer %llu\n", ftell(in));
