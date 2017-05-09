@@ -20,11 +20,15 @@ Notes:
 - LZ78
     - Will only run (correctly) on little-endian machines
     - Requires OMP and pgcc 
+    - Code is untested and fill likely fail on extremely small files, when 
+      using more threads than bytes present in the file 
 
     - To build: 
         1) cd to lz78
         2) make lz78_omp
 
-    - To run: run lz78_omp without any arguments for usage
+    - To run: "./lz78_omp" will display usage
+              "./lz78_omp compress infile outfile [num_threads]" for general use
+              
 
 - LZ77
