@@ -8,6 +8,7 @@ Date: May 8, 2017
 import csv
 import itertools
 import matplotlib.pyplot as plt
+import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 
 ################################################################################
@@ -130,31 +131,28 @@ print "------------------------------"
 num_items = len(threads_out_master[0])
 # What I was hoping for was a separate label for every label_thread_in combo
 # then the y-axis would be thread_out, and the z-axis would be time
-x = range(0,len(header_master) * 2, 2)
+x = np.arange(0, 32, 6)
+labels = None
 for i, header in enumerate(header_master):
-    fig = plt.figure(i + 3)
-    ax = fig.gca(projection='3d')
-    ax.plot([i * 2] * num_items, threads_out_master[i], zs=time_master[i])
-    plt.xticks(x, header_master)
-    ax.set_xticklabels(ax.xaxis.get_majorticklabels(), rotation=45)
-    plt.yticks([1,2,4,6,8,16,32])
-    plt.savefig(header + ".pdf") 
+    if (i % 6 == 0):
+        fig = plt.figure(i + 3)
+        ax = fig.gca(projection='3d')
+        labels = header_master[i:i+6]
+    ax.plot([(i % 6) * 6] * num_items, threads_out_master[i], zs=time_master[i])
+    
+    if (i % 6 == 5):
+        plt.xticks(x, labels)
+        ax.set_xticklabels(ax.xaxis.get_majorticklabels(), rotation=45)
+        plt.yticks([1,2,4,6,8,16,32])
+        plt.savefig("images/" + header + ".pdf") 
 '''
-for i, item in enumerate(label_master):
-    # ax.plot(label_master[i], threads_in_master[i], threads_out_master[i])
-    # This works: ax.plot([1,1,1],[1,2,3], zs=[1,2,3])
-    #ax.plot(threads_in_master[i], zs=threads_out_master[i])
-plt.xticks(x, label_master)
-#ax.axes.set_xticklabels(label_master)
-#ax.legend()
-plt.savefig("test3.pdf") 
+plt.xticks(x, labels)
+ax.set_xticklabels(ax.xaxis.get_majorticklabels(), rotation=45)
+plt.yticks([1,2,4,6,8,16,32])
+plt.savefig("images/" + header_master[len(header_master)-1]+ ".pdf") 
 '''
 
-# Space versus threads 
-'''
-plt.figure(3)
-for i, item in enumerate(label_master):
-    plt.plot(num_threads_master[i], filesize_master[i], label=label_master[i])
-plt.legend()
-plt.savefig("test2.pdf") 
-'''
+
+
+
+
