@@ -52,54 +52,37 @@ print filesize_master
 
 # Time versus threads 
 plt.figure(0)
-for i, item in enumerate(label_master):
+for i in range(0, 5): 
     plt.plot(num_threads_master[i], time_master[i], label=label_master[i])
-plt.legend()
+    plt.legend()
 plt.savefig("test.pdf") 
 
-# Space versus threads 
+# Time versus threads 
 plt.figure(1)
-for i, item in enumerate(label_master):
-    plt.plot(num_threads_master[i], filesize_master[i], label=label_master[i])
-plt.legend()
+for i in range(5, 9): 
+    plt.plot(num_threads_master[i], time_master[i], label=label_master[i])
+    plt.legend()
 plt.savefig("test2.pdf") 
+
+# Space versus threads 
+plt.figure(2)
+for i in range(0, 5): 
+    plt.plot(num_threads_master[i], filesize_master[i], label=label_master[i])
+    plt.legend()
+plt.savefig("test3.pdf") 
+
+# Space versus threads 
+plt.figure(3)
+for i in range(5, 9): 
+    plt.plot(num_threads_master[i], filesize_master[i], label=label_master[i])
+    plt.legend()
+plt.savefig("test4.pdf") 
 
 
 ################################################################################
 # Decompression Statistics
 ################################################################################
 # File, threads in, threads out, seconds
-'''
-label = None
-label_master = []
-threads_in_master = []
-threads_out_master = []
-time_master = []
-
-with open("decompress_stats.dat", "rb") as csvfile:
-    reader = csv.reader(csvfile)
-    
-    threads_in = [] 
-    threads_out = []
-    time = []
-    for row in reader:
-        if row[0] != label:
-            if (label is not None):
-                threads_in_master.append(threads_in)
-                threads_out_master.append(threads_out)
-                time_master.append(time)
-                threads_in = []
-                threads_out = []
-                time = []
-            label_master.append(row[0])
-            label = row[0] 
-        threads_in.append(row[1])
-        threads_out.append(row[2])
-        time.append(row[3])
-    threads_in_master.append(threads_in)
-    threads_out_master.append(threads_out)
-    time_master.append(time)
-'''
 
 header = None
 header_master = []
@@ -125,34 +108,25 @@ with open("decompress_stats.dat", "rb") as csvfile:
     threads_out_master.append(threads_out)
     time_master.append(time)
 
-print "------------------------------"
-
-
 num_items = len(threads_out_master[0])
-# What I was hoping for was a separate label for every label_thread_in combo
-# then the y-axis would be thread_out, and the z-axis would be time
-x = np.arange(0, 32, 6)
+x = np.arange(0, 34, 6)
 labels = None
 for i, header in enumerate(header_master):
     if (i % 6 == 0):
-        fig = plt.figure(i + 3)
+        fig = plt.figure(i + 4)
         ax = fig.gca(projection='3d')
         labels = header_master[i:i+6]
-    ax.plot([(i % 6) * 6] * num_items, threads_out_master[i], zs=time_master[i])
+    ax.plot([32 - ((i % 6) * 6 )] * num_items, threads_out_master[i], zs=time_master[i], label=header_master[i])
     
     if (i % 6 == 5):
-        plt.xticks(x, labels)
-        ax.set_xticklabels(ax.xaxis.get_majorticklabels(), rotation=45)
-        plt.yticks([1,2,4,6,8,16,32])
+        plt.subplots_adjust(left=0,right=.9,bottom=.1,top=1)
+        # plt.xticks(x, labels)
+        plt.xticks([])
+        # ax.set_xticklabels(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+        ax.set_zlabel("time (s)")
+        ax.set_ylabel("# threads used in decompression")
+        # ax.set_yscale('log')
+        # plt.yticks([1,2,4,6,8,16,32])
+        # ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.05), ncol=3, fancybox=True, shadow=True)
+        plt.legend()
         plt.savefig("images/" + header + ".pdf") 
-'''
-plt.xticks(x, labels)
-ax.set_xticklabels(ax.xaxis.get_majorticklabels(), rotation=45)
-plt.yticks([1,2,4,6,8,16,32])
-plt.savefig("images/" + header_master[len(header_master)-1]+ ".pdf") 
-'''
-
-
-
-
-
