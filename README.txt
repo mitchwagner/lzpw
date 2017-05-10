@@ -31,7 +31,7 @@ Notes:
         2) "make lz78_omp"
 
     - To run: "./lz78_omp" will display usage
-              "./lz78_omp compress infile outfile [num_threads]" for general use
+              "./lz78_omp compress/decompress infile outfile [num_threads]" for general use
 
     - To run testing framework: 
         1) Create folders "test-in" and "test-out" in "test" directory
@@ -40,5 +40,19 @@ Notes:
         4) Run test.sh in "test" (This may take a while depending on file size)
           
 - LZ77
+    - To build:
+        1) cd into lz77
+        2) "make"
+
+    - To run:
+        - Compression:   "./omp_lz77 test.txt test.pw"
+        - Decompression: "./omp_lz77 -d test.pw test1.txt"
 
 - LZSS
+    - To build:
+        1) cd into lzSS
+        2) "make"
+
+    - To run:
+        - Compression:   "./omp_lzSS test.txt test.pw"
+        - Decompression: "./omp_lzSS -d test.pw test1.txt"
