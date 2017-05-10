@@ -45,37 +45,44 @@ with open("compress_stats.dat", "rb") as csvfile:
     time_master.append(time)
     filesize_master.append(filesize)
 
-print label_master
-print num_threads_master
-print time_master
-print filesize_master
-
 # Time versus threads 
 plt.figure(0)
 for i in range(0, 5): 
     plt.plot(num_threads_master[i], time_master[i], label=label_master[i])
-    plt.legend()
+plt.title("Time to Compress vs. Number of Threads Used (Images)", y=1.08)
+plt.xlabel("Number of Threads")
+plt.ylabel("Time to Compress (s)")
+plt.legend()
 plt.savefig("test.pdf") 
 
 # Time versus threads 
 plt.figure(1)
 for i in range(5, 9): 
     plt.plot(num_threads_master[i], time_master[i], label=label_master[i])
-    plt.legend()
+plt.legend()
+plt.title("Time to Compress vs. Number of Threads Used (ASCII)", y=1.08)
+plt.xlabel("Number of Threads")
+plt.ylabel("Time to Compress (s)")
 plt.savefig("test2.pdf") 
 
 # Space versus threads 
 plt.figure(2)
 for i in range(0, 5): 
     plt.plot(num_threads_master[i], filesize_master[i], label=label_master[i])
-    plt.legend()
+plt.legend()
+plt.title("Compressed File Size vs. Number of Threads Used (Images)", y=1.08)
+plt.xlabel("Number of Threads")
+plt.ylabel("File Size (bytes)")
 plt.savefig("test3.pdf") 
 
 # Space versus threads 
 plt.figure(3)
 for i in range(5, 9): 
     plt.plot(num_threads_master[i], filesize_master[i], label=label_master[i])
-    plt.legend()
+plt.legend()
+plt.title("Compressed File Size vs. Number of Threads Used (ASCII)", y=1.08)
+plt.xlabel("Number of Threads")
+plt.ylabel("File Size (bytes)")
 plt.savefig("test4.pdf") 
 
 
@@ -119,14 +126,20 @@ for i, header in enumerate(header_master):
     ax.plot([32 - ((i % 6) * 6 )] * num_items, threads_out_master[i], zs=time_master[i], label=header_master[i])
     
     if (i % 6 == 5):
-        plt.subplots_adjust(left=0,right=.9,bottom=.1,top=1)
-        # plt.xticks(x, labels)
+        plt.subplots_adjust(left=.1,right=.88,bottom=.1,top=.9)
         plt.xticks([])
-        # ax.set_xticklabels(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
-        ax.set_zlabel("time (s)")
-        ax.set_ylabel("# threads used in decompression")
-        # ax.set_yscale('log')
-        # plt.yticks([1,2,4,6,8,16,32])
-        # ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.05), ncol=3, fancybox=True, shadow=True)
-        plt.legend()
+        ax.set_zlabel("Time (s)")
+        ax.set_ylabel("# Threads Used in Decompression")
+        leg = ax.legend(loc='lower left')
+        plt.title("Time to Decompress vs. # Threads Used \n During Compression/Decompression", y=1.08)
+        bb = leg.get_bbox_to_anchor().inverse_transformed(ax.transAxes)
+        offset = -.1
+        bb.x0 += offset
+        bb.x1 += offset
+        bb.y0 += offset
+        bb.y1 += offset 
+        leg.set_bbox_to_anchor(bb, transform = ax.transAxes)
         plt.savefig("images/" + header + ".pdf") 
+
+
+
