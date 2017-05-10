@@ -9,11 +9,14 @@
 -------------------------------------------------------------------------------
                                   
 This repository contains serial and parallel implementations of the classic
-LZ77 and LZ78 compression algorithms.
+LZ77, LZSS, and LZ78 compression algorithms. LZ77 and LZSS are implemented
+to provide byte-level compression; LZ78 is implemented to provide bit-level
+compression.
 
 Contributions:
 
 LZ77 implemented by Aditya Pratapa
+LZSS implemented by Aditya Pratapa
 LZ78 implemented by Mitch Wagner
 
 Notes:
@@ -36,6 +39,6 @@ Notes:
         3) Compile and move the lz78_omp executable to the folder "test"
         4) Run test.sh in "test" (This may take a while depending on file size)
           
-              
-
 - LZ77
+
+- LZSS
